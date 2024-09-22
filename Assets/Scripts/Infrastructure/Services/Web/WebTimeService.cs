@@ -1,7 +1,7 @@
 ﻿using Data;
 using Infrastructure.Services.JSON;
 using System;
-using System.Threading.Tasks;
+using UnityEngine;
 using Zenject;
 
 namespace Infrastructure.Services.Web
@@ -11,22 +11,32 @@ namespace Infrastructure.Services.Web
         private const string URL = "https://yandex.com/time/sync.json";
 
         private readonly IJsonService _jsonService;
-        private readonly IWebServiceAsync _webServiceAsync;
+        private readonly IWebService _webServiceAsync;
+
+        private Coroutine _coroutine;
+        private Action<DateTime> _complete;
 
         [Inject]
-        public WebTimeService(IWebServiceAsync webServiceAsync, IJsonService jsonService)
+        public WebTimeService(IWebService webServiceAsync, IJsonService jsonService)
         {
             _jsonService = jsonService;
             _webServiceAsync = webServiceAsync;
         }
 
-        public async Task<DateTime> FetchTimeAsync()
+        public void FetchTime(Action<DateTime> complete)
         {
-            var json = await _webServiceAsync.Request(URL);
+            _webServiceAsync.Request(URL, OnCompliteRequest);
 
+            _complete = complete;
+        }
+
+        private void OnCompliteRequest(string json)
+        {
             TimeData data = _jsonService.Deserialize<TimeData>(json);
 
-            return DateTimeOffset.FromUnixTimeMilliseconds(data.Time).UtcDateTime;
+            var time = DateTimeOffset.FromUnixTimeMilliseconds(data.Time).UtcDateTime;
+
+            _complete?.Invoke(time);
         }
     }
 }

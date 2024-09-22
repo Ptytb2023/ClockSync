@@ -1,24 +1,36 @@
-using Exstensions;
 using Infrastructure.Services.Coroutines;
 using System;
-using System.Threading.Tasks;
-using Unity.VisualScripting.Antlr3.Runtime;
+using System.Collections;
+using UnityEngine;
 using UnityEngine.Networking;
+using Zenject;
 
 namespace Infrastructure.Services.Web
 {
-    public class WebService : IWebServiceAsync
+    public class WebService : IWebService
     {
-        public async Task<string> Request(string http)
-        {
-            UnityWebRequest request = UnityWebRequest.Get(http);
+        private ICoroutineService _coroutineService;
 
-            await request;
+        [Inject]
+        public WebService(ICoroutineService coroutineService) => 
+            _coroutineService = coroutineService;
+
+        public void Request(string url, Action<string> complite) =>
+            _coroutineService.StartCoroutine(RequestCoroutine(url, complite));
+
+        private IEnumerator RequestCoroutine(string url, Action<string> onComplete)
+        {
+            UnityWebRequest request = UnityWebRequest.Get(url);
+
+            yield return request.SendWebRequest();
 
             if (request.result == UnityWebRequest.Result.Success)
-                return request.downloadHandler.text;
+                onComplete?.Invoke(request.downloadHandler.text);
             else
-                return null;
+            {
+                onComplete?.Invoke(null);
+                Debug.LogError($"Error: {request.error}");
+            }
         }
     }
 }
